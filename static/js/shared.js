@@ -73,7 +73,7 @@ function initMap(options = {}) {
       });
 
       map.addControl(new maplibregl.NavigationControl(), 'top-right');
-      popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '300px', offset: 20, anchor: 'top' });
+      popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '300px', offset: 25, anchor: 'bottom' });
 
       return new Promise(resolve => {
         map.on('load', () => resolve(map));
