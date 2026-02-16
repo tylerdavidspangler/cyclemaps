@@ -179,7 +179,7 @@ function unhighlightRoute() {
 
 // --- Hover popup on map ---
 function setupHoverPopup() {
-  map.on('mousemove', 'routes-line', (e) => {
+  function onRouteHover(e) {
     if (!e.features.length) return;
     map.getCanvas().style.cursor = 'pointer';
     const p = e.features[0].properties;
@@ -198,12 +198,19 @@ function setupHoverPopup() {
       ${meta.length ? `<div class="popup-meta">${meta.join(' · ')}</div>` : ''}
       <span class="popup-type" style="background:${bg};color:${tc}">${p.route_type}</span>
     `).addTo(map);
-  });
-  map.on('mouseleave', 'routes-line', () => {
+  }
+
+  function onRouteLeave() {
     map.getCanvas().style.cursor = '';
     popup.remove();
     unhighlightRoute();
-  });
+  }
+
+  // Listen on both layers so the highlight layer doesn't block events
+  map.on('mousemove', 'routes-line', onRouteHover);
+  map.on('mousemove', 'routes-highlight', onRouteHover);
+  map.on('mouseleave', 'routes-line', onRouteLeave);
+  map.on('mouseleave', 'routes-highlight', onRouteLeave);
 }
 
 // --- Delete route ---
