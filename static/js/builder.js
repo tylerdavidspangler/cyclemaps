@@ -4,33 +4,6 @@
 (function() {
 
 const OSRM_BASE = 'https://router.project-osrm.org/route/v1/cycling';
-const VALHALLA_BASE = 'https://valhalla1.openstreetmap.de/route';
-
-// Decode Valhalla's encoded polyline6 format to [lng, lat] coordinates
-function decodePolyline6(encoded) {
-  const coords = [];
-  let idx = 0, lat = 0, lng = 0;
-  while (idx < encoded.length) {
-    let shift = 0, result = 0, byte;
-    do {
-      byte = encoded.charCodeAt(idx++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-    } while (byte >= 0x20);
-    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
-
-    shift = 0; result = 0;
-    do {
-      byte = encoded.charCodeAt(idx++) - 63;
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-    } while (byte >= 0x20);
-    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
-
-    coords.push([lng / 1e6, lat / 1e6]);
-  }
-  return coords;
-}
 
 let waypoints = [];       // [{lng, lat, marker}]
 let routeGeometry = null; // GeoJSON LineString
@@ -40,23 +13,12 @@ let routeElevationGain = 0;
 let routeSurfaceData = null; // {breakdown: [...], raw_counts: {...}}
 let routeTimeout = null;
 let isSaving = false;
-let routingMode = 'road'; // 'road', 'gravel', or 'straight'
 
 // --- Init ---
 initMap().then(() => {
   map.getContainer().classList.add('builder-cursor');
   map.on('click', onMapClick);
   renderWaypointList();
-
-  // Routing mode buttons
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      routingMode = btn.dataset.mode;
-      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === routingMode));
-      // Re-route with new mode if we have waypoints
-      if (waypoints.length >= 2) queryOSRM();
-    });
-  });
 
   // Load existing route if editing
   if (window.EDIT_ROUTE_ID) {
@@ -183,66 +145,19 @@ function queryOSRM() {
   }
 
   routeTimeout = setTimeout(async () => {
-    if (routingMode === 'straight') {
-      const coordsList = waypoints.map(wp => [wp.lng, wp.lat]);
-      routeGeometry = { type: 'LineString', coordinates: coordsList };
-      routeDistance = 0;
-      for (let i = 1; i < coordsList.length; i++) {
-        routeDistance += haversine(coordsList[i-1][1], coordsList[i-1][0], coordsList[i][1], coordsList[i][0]) * 1000;
-      }
-      drawRouteLine();
-      updateStats();
-      fetchElevation();
-      fetchSurface();
-      return;
-    }
-
     try {
-      if (routingMode === 'gravel') {
-        // Valhalla pedestrian profile — routes on trails, dirt roads, fire roads
-        const locations = waypoints.map(wp => ({ lat: wp.lat, lon: wp.lng }));
-        const resp = await fetch(VALHALLA_BASE, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            locations: locations,
-            costing: 'pedestrian',
-            units: 'km',
-          }),
-        });
-        const data = await resp.json();
+      const coords = waypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
+      const url = `${OSRM_BASE}/${coords}?overview=full&geometries=geojson&steps=false`;
+      const resp = await fetch(url);
+      const data = await resp.json();
 
-        if (!data.trip || !data.trip.legs || !data.trip.legs.length) {
-          console.warn('Valhalla returned no route:', data);
-          return;
-        }
-
-        // Decode all leg shapes and merge into one LineString
-        let allCoords = [];
-        for (const leg of data.trip.legs) {
-          const legCoords = decodePolyline6(leg.shape);
-          if (allCoords.length > 0) legCoords.shift(); // avoid duplicate point at leg join
-          allCoords = allCoords.concat(legCoords);
-        }
-
-        routeGeometry = { type: 'LineString', coordinates: allCoords };
-        routeDistance = data.trip.summary.length * 1000; // km -> meters
-
-      } else {
-        // OSRM cycling profile — snaps to paved roads
-        const coords = waypoints.map(wp => `${wp.lng},${wp.lat}`).join(';');
-        const url = `${OSRM_BASE}/${coords}?overview=full&geometries=geojson&steps=false`;
-        const resp = await fetch(url);
-        const data = await resp.json();
-
-        if (data.code !== 'Ok' || !data.routes || !data.routes.length) {
-          console.warn('OSRM returned no route:', data);
-          return;
-        }
-
-        routeGeometry = data.routes[0].geometry;
-        routeDistance = data.routes[0].distance;
+      if (data.code !== 'Ok' || !data.routes || !data.routes.length) {
+        console.warn('OSRM returned no route:', data);
+        return;
       }
+
+      routeGeometry = data.routes[0].geometry;
+      routeDistance = data.routes[0].distance;
 
       drawRouteLine();
       updateStats();
