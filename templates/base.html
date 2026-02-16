@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Cycling Routes{% endblock %}</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/shared.css') }}" />
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <div id="map"></div>
+
+  <nav id="top-nav">
+    <a href="/viewer" class="nav-link {% block nav_viewer %}{% endblock %}">Viewer</a>
+    <a href="/builder" class="nav-link {% block nav_builder %}{% endblock %}">Builder</a>
+  </nav>
+
+  {% block sidebar %}{% endblock %}
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="{{ url_for('static', filename='js/shared.js') }}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

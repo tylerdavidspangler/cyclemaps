@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+routes_data.json
+*.egg-info/
+dist/
+build/
+.DS_Store

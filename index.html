@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bay Area Cycling Routes</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    #map { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+
+    #sidebar {
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 340px;
+      z-index: 10;
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 2px 0 24px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 20px 20px 14px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .sidebar-header h1 { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 2px; }
+    .sidebar-header .sub { font-size: 12px; color: #94a3b8; }
+
+    .type-filters {
+      display: flex;
+      gap: 6px;
+      padding: 12px 20px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .type-btn {
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1.5px solid #e2e8f0;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      color: #64748b;
+      transition: all 0.15s;
+    }
+    .type-btn.active { border-color: currentColor; background: currentColor; color: #fff !important; }
+    .type-btn[data-type="all"] { color: #475569; }
+    .type-btn[data-type="all"].active { background: #475569; border-color: #475569; }
+    .type-btn[data-type="road"] { color: #2563eb; }
+    .type-btn[data-type="road"].active { background: #2563eb; border-color: #2563eb; }
+    .type-btn[data-type="gravel"] { color: #d97706; }
+    .type-btn[data-type="gravel"].active { background: #d97706; border-color: #d97706; }
+
+    .route-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .area-header {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #94a3b8;
+      font-weight: 700;
+      padding: 14px 20px 6px;
+    }
+
+    .route-item {
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.12s;
+      border-left: 3px solid transparent;
+    }
+    .route-item:hover { background: #f8fafc; }
+    .route-item.highlighted { background: #eff6ff; border-left-color: #3b82f6; }
+    .route-item.highlighted[data-type="gravel"] { background: #fffbeb; border-left-color: #d97706; }
+
+    .route-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .route-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .route-desc {
+      font-size: 11px;
+      color: #64748b;
+      line-height: 1.4;
+      margin-top: 3px;
+      padding-left: 16px;
+    }
+    .route-type-tag {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: auto;
+    }
+
+    .route-item.hidden { display: none; }
+
+    #loading-bar {
+      height: 3px;
+      background: #f1f5f9;
+      overflow: hidden;
+    }
+    #loading-bar .fill {
+      height: 100%;
+      width: 30%;
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+      animation: loading 1.2s ease-in-out infinite;
+    }
+    #loading-bar.done .fill { width: 100%; animation: none; opacity: 0; transition: opacity 0.5s; }
+    @keyframes loading {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(400%); }
+    }
+
+    .status-msg {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .maplibregl-popup-content {
+      border-radius: 10px !important;
+      padding: 10px 14px !important;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .popup-name { font-weight: 600; font-size: 14px; color: #1e293b; }
+    .popup-desc { font-size: 12px; color: #64748b; margin-top: 4px; line-height: 1.4; }
+    .popup-type { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h1>Bay Area Cycling Routes</h1>
+      <div class="sub">Curated roads for road & gravel cyclists</div>
+    </div>
+    <div class="type-filters">
+      <button class="type-btn active" data-type="all" onclick="filterType('all')">All</button>
+      <button class="type-btn" data-type="road" onclick="filterType('road')">Road</button>
+      <button class="type-btn" data-type="gravel" onclick="filterType('gravel')">Gravel</button>
+    </div>
+    <div id="loading-bar"><div class="fill"></div></div>
+    <div class="route-list" id="route-list">
+      <div class="status-msg" id="status">Loading routes...</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script>
+    // =====================================================================
+    // ROUTE DEFINITIONS
+    // =====================================================================
+    const ROUTES = [
+      // --- Peninsula ---
+      { search: 'Old La Honda', name: 'Old La Honda Road', type: 'road', area: 'Peninsula', c: [37.37,-122.22], d: 'THE benchmark climb. 3.3mi, 1,300ft, 7.5% avg through redwoods' },
+      { search: 'Kings Mountain', name: 'Kings Mountain Road', type: 'road', area: 'Peninsula', c: [37.43,-122.29], d: 'Shaded redwood climb from Woodside to Skyline' },
+      { search: 'Tunitas Creek', name: 'Tunitas Creek Road', type: 'road', area: 'Peninsula', c: [37.38,-122.38], d: 'One-lane road through towering redwoods. Near-zero traffic' },
+      { search: 'Page Mill', name: 'Page Mill Road', type: 'road', area: 'Peninsula', c: [37.36,-122.17], d: 'Major climb from Palo Alto to Skyline. Used in Tour of California' },
+      { search: 'Canada Road', name: 'Canada Road', type: 'road', area: 'Peninsula', c: [37.46,-122.28], d: 'Flat, bike-friendly. Closed to cars on Bicycle Sundays' },
+      { search: 'Alpine Road', name: 'Alpine Road', type: 'road', area: 'Peninsula', c: [37.36,-122.24], d: 'Climbs to 2,400ft. Paved upper section connects to famous dirt section' },
+      { search: 'Stage Road', name: 'Stage Road', type: 'road', area: 'Peninsula', c: [37.32,-122.38], d: 'Steep coastal road. Key link in the classic Pescadero Loop' },
+      { search: 'Sand Hill', name: 'Sand Hill Road', type: 'road', area: 'Peninsula', c: [37.42,-122.19], d: 'Popular flat connector through Menlo Park to the hills' },
+      { search: 'Skyline Blvd', name: 'Skyline Boulevard', type: 'road', area: 'Peninsula', c: [37.35,-122.28], d: 'The spine of Peninsula cycling along the ridgeline at 2,000ft' },
+      { search: 'Purisima Creek', name: 'Purisima Creek Road', type: 'gravel', area: 'Peninsula', c: [37.43,-122.38], d: 'Coast-to-redwoods gravel. Minimal grades, amazing scenery' },
+
+      // --- South Bay ---
+      { search: 'Mount Hamilton', name: 'Mount Hamilton Road', type: 'road', area: 'South Bay', c: [37.34,-121.70], d: 'Longest Bay Area climb. 18mi to 4,256ft at Lick Observatory' },
+      { search: 'Sierra Road', name: 'Sierra Road', type: 'road', area: 'South Bay', c: [37.40,-121.82], d: 'One of the steepest climbs — 9.5% avg, starts at 10.2%. Pure power' },
+      { search: 'Calaveras', name: 'Calaveras Road', type: 'road', area: 'South Bay', c: [37.50,-121.82], d: '5-mile wooded canyon climb. Car-free on weekends' },
+      { search: 'Montebello', name: 'Montebello Road', type: 'gravel', area: 'South Bay', c: [37.31,-122.10], d: 'Paved climb transitions to fire road up Black Mountain. 2,800ft summit' },
+      { search: 'Stevens Canyon', name: 'Stevens Canyon Road', type: 'road', area: 'South Bay', c: [37.30,-122.08], d: 'Winding road following Stevens Creek through the foothills' },
+
+      // --- East Bay ---
+      { search: 'Grizzly Peak', name: 'Grizzly Peak Boulevard', type: 'road', area: 'East Bay', c: [37.88,-122.24], d: 'Berkeley Hills ridgeline with views of the Bay, GG Bridge & SF' },
+      { search: 'Pinehurst', name: 'Pinehurst Road', type: 'road', area: 'East Bay', c: [37.83,-122.19], d: 'Fairy-tale redwood descent into Canyon, then a brutal climb back' },
+      { search: 'Bear Creek', name: 'Bear Creek Road', type: 'road', area: 'East Bay', c: [37.93,-122.17], d: 'The Three Bears — three distinct climbs nicknamed Mama, Papa, Baby' },
+      { search: 'Tunnel Road', name: 'Tunnel Road', type: 'road', area: 'East Bay', c: [37.87,-122.23], d: 'Main access from flatlands to Grizzly Peak and Skyline' },
+      { search: 'Morgan Territory', name: 'Morgan Territory Road', type: 'road', area: 'East Bay', c: [37.78,-121.78], d: 'Most remote Bay Area road. Virtually no traffic, recently resurfaced' },
+      { search: 'Palomares', name: 'Palomares Road', type: 'road', area: 'East Bay', c: [37.63,-122.02], d: 'Idyllic wooded backroad. Steepest East Bay classic — 9-13% near summit' },
+      { search: 'South Gate', name: 'South Gate Road', type: 'road', area: 'East Bay', c: [37.86,-121.94], d: 'Mt Diablo via South Gate — a steady 5% grade classic' },
+      { search: 'North Gate', name: 'North Gate Road', type: 'road', area: 'East Bay', c: [37.90,-121.96], d: 'Mt Diablo steeper approach from Walnut Creek side' },
+      { search: 'Summit Road', name: 'Summit Road (Mt Diablo)', type: 'road', area: 'East Bay', c: [37.88,-121.92], d: '7% avg with a 13% kick to the top. Views of 40 counties' },
+      { search: 'Mines Road', name: 'Mines Road', type: 'road', area: 'East Bay', c: [37.50,-121.60], d: '80km epic from Livermore. One of the most remote roads in the Bay Area' },
+      { search: 'Redwood Road', name: 'Redwood Road', type: 'road', area: 'East Bay', c: [37.78,-122.13], d: 'Windy Oakland Hills road through beautiful redwood forests' },
+      { search: 'Patterson Pass', name: 'Patterson Pass Road', type: 'road', area: 'East Bay', c: [37.72,-121.58], d: 'Short exhilarating ride over hills east of Livermore' },
+
+      // --- Marin / North Bay ---
+      { search: 'Conzelman', name: 'Conzelman Road (Hawk Hill)', type: 'road', area: 'Marin', c: [37.83,-122.50], d: 'Iconic Strava segment. 800ft, hits 18%. Best GG Bridge views' },
+      { search: 'Paradise Drive', name: 'Paradise Drive', type: 'road', area: 'Marin', c: [37.89,-122.47], d: 'Gentle bayside loop through Tiburon. Perfect for easy spins' },
+      { search: 'Camino Alto', name: 'Camino Alto', type: 'road', area: 'Marin', c: [37.90,-122.52], d: 'Gentle forest climb with views of SF from the top' },
+      { search: 'Panoramic Highway', name: 'Panoramic Highway', type: 'road', area: 'Marin', c: [37.89,-122.57], d: 'Beautiful views of Muir Woods and the coastline' },
+      { search: 'Ridgecrest', name: 'Ridgecrest Boulevard', type: 'road', area: 'Marin', c: [37.92,-122.58], d: 'Crown jewel of Mt Tam. 3mi to East Peak summit with 360° views' },
+      { search: 'Fairfax.Bolinas', name: 'Fairfax-Bolinas Road', type: 'road', area: 'Marin', c: [37.94,-122.63], d: 'Classic Marin climb. Forest, ridgelines, alpine lakes. Almost traffic-free' },
+      { search: 'Lucas Valley', name: 'Lucas Valley Road', type: 'road', area: 'Marin', c: [38.02,-122.62], d: 'Passes Skywalker Ranch. Curvy descent through redwoods to pastures' },
+      { search: 'Nicasio Valley', name: 'Nicasio Valley Road', type: 'road', area: 'Marin', c: [38.06,-122.68], d: 'Picturesque rolling road through Marin dairy country' },
+      { search: 'Marshall.Petaluma', name: 'Marshall-Petaluma Road', type: 'road', area: 'Marin', c: [38.16,-122.83], d: 'The Marshall Wall. 9-12% stair-step climb with Pacific views' },
+      { search: 'Bolinas Ridge', name: 'Bolinas Ridge Trail', type: 'gravel', area: 'Marin', c: [37.98,-122.65], d: 'Ridgeline fire road with Pacific Ocean and Tomales Bay views' },
+      { search: 'Old Railroad Grade', name: 'Old Railroad Grade (Mt Tam)', type: 'gravel', area: 'Marin', c: [37.91,-122.58], d: 'Historic fire road up Mt Tam. Wide, well-maintained, moderate grade' },
+
+      // --- Santa Cruz Mountains ---
+      { search: 'Bonny Doon', name: 'Bonny Doon Road', type: 'road', area: 'Santa Cruz', c: [37.03,-122.15], d: '2.3mi at 9.4%. Coast to mountains. Featured 3x in Tour of California' },
+      { search: 'Empire Grade', name: 'Empire Grade', type: 'road', area: 'Santa Cruz', c: [37.05,-122.15], d: 'Sea-level to ridgeline at 3.8% avg. Links to many other climbs' },
+      { search: 'Smith Grade', name: 'Smith Grade', type: 'road', area: 'Santa Cruz', c: [37.06,-122.18], d: 'Almost always car-free. Part of the classic lollipop loop' },
+      { search: 'Ice Cream Grade', name: 'Ice Cream Grade', type: 'road', area: 'Santa Cruz', c: [37.08,-122.14], d: 'Picture-book redwood forest. Quiet, shaded, scenic' },
+    ];
+
+    const AREA_ORDER = ['Marin', 'Peninsula', 'South Bay', 'East Bay', 'Santa Cruz'];
+    const COLORS = { road: '#2563eb', gravel: '#d97706' };
+    const OVERPASS_SERVERS = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+    ];
+
+    let map, popup, activeType = 'all', highlightedRoute = null, serverIdx = 0;
+
+    // =====================================================================
+    // BUILD OVERPASS QUERY
+    // =====================================================================
+    function buildQuery() {
+      const patterns = ROUTES.map(r => r.search).join('|');
+      const bbox = '36.9,-123.1,38.3,-121.3';
+      return `[out:json][timeout:90];(way["highway"]["name"~"${patterns}",i](${bbox}););out geom;`;
+    }
+
+    // =====================================================================
+    // HAVERSINE DISTANCE (km)
+    // =====================================================================
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // =====================================================================
+    // MATCH OVERPASS WAYS TO ROUTE DEFINITIONS
+    // =====================================================================
+    function matchWays(elements) {
+      const matched = new Map(); // route index → [geojson features]
+
+      for (const el of elements) {
+        if (el.type !== 'way' || !el.tags?.name || !el.geometry?.length) continue;
+
+        const wayName = el.tags.name;
+        // Find centroid of this way
+        const midPt = el.geometry[Math.floor(el.geometry.length / 2)];
+
+        for (let i = 0; i < ROUTES.length; i++) {
+          const route = ROUTES[i];
+          const re = new RegExp(route.search, 'i');
+          if (!re.test(wayName)) continue;
+
+          // Check proximity to expected center (within 25km)
+          const dist = haversine(midPt.lat, midPt.lon, route.c[0], route.c[1]);
+          if (dist > 25) continue;
+
+          if (!matched.has(i)) matched.set(i, []);
+          matched.get(i).push({
+            type: 'Feature',
+            properties: { routeIdx: i, name: route.name, routeType: route.type, desc: route.d },
+            geometry: {
+              type: 'LineString',
+              coordinates: el.geometry.map(p => [p.lon, p.lat]),
+            },
+          });
+          break; // First match wins
+        }
+      }
+      return matched;
+    }
+
+    // =====================================================================
+    // FETCH FROM OVERPASS WITH RETRY
+    // =====================================================================
+    async function fetchOverpass(query, retries = 0) {
+      const server = OVERPASS_SERVERS[serverIdx++ % OVERPASS_SERVERS.length];
+      try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 45000);
+        const resp = await fetch(server, {
+          method: 'POST',
+          body: 'data=' + encodeURIComponent(query),
+          signal: ctrl.signal,
+        });
+        clearTimeout(tid);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
+      } catch (err) {
+        if (retries < 2) {
+          await new Promise(r => setTimeout(r, 2000 * (retries + 1)));
+          return fetchOverpass(query, retries + 1);
+        }
+        throw err;
+      }
+    }
+
+    // =====================================================================
+    // BUILD SIDEBAR
+    // =====================================================================
+    function buildSidebar(matched) {
+      const list = document.getElementById('route-list');
+      list.innerHTML = '';
+
+      for (const area of AREA_ORDER) {
+        const areaRoutes = ROUTES
+          .map((r, i) => ({ ...r, idx: i }))
+          .filter(r => r.area === area && matched.has(r.idx));
+
+        if (areaRoutes.length === 0) continue;
+
+        const header = document.createElement('div');
+        header.className = 'area-header';
+        header.textContent = area;
+        list.appendChild(header);
+
+        for (const route of areaRoutes) {
+          const item = document.createElement('div');
+          item.className = 'route-item';
+          item.dataset.idx = route.idx;
+          item.dataset.type = route.type;
+          const color = COLORS[route.type];
+          const typeLabel = route.type === 'road' ? 'Road' : 'Gravel';
+          const typeBg = route.type === 'road' ? '#dbeafe' : '#fef3c7';
+          const typeColor = route.type === 'road' ? '#1d4ed8' : '#92400e';
+
+          item.innerHTML = `
+            <div class="route-name">
+              <span class="route-dot" style="background:${color}"></span>
+              ${route.name}
+              <span class="route-type-tag" style="background:${typeBg};color:${typeColor}">${typeLabel}</span>
+            </div>
+            <div class="route-desc">${route.d}</div>
+          `;
+
+          item.addEventListener('click', () => flyToRoute(route.idx, matched));
+          item.addEventListener('mouseenter', () => highlightRoute(route.idx));
+          item.addEventListener('mouseleave', () => unhighlightRoute());
+
+          list.appendChild(item);
+        }
+      }
+
+      // Show count of routes not found
+      const foundCount = matched.size;
+      const totalCount = ROUTES.length;
+      if (foundCount < totalCount) {
+        const note = document.createElement('div');
+        note.className = 'status-msg';
+        note.textContent = `${foundCount} of ${totalCount} routes found in OSM data`;
+        list.appendChild(note);
+      }
+    }
+
+    // =====================================================================
+    // MAP INTERACTIONS
+    // =====================================================================
+    function flyToRoute(idx, matched) {
+      const features = matched.get(idx);
+      if (!features) return;
+
+      // Compute bounds of all features for this route
+      const bounds = new maplibregl.LngLatBounds();
+      for (const f of features) {
+        for (const [lng, lat] of f.geometry.coordinates) {
+          bounds.extend([lng, lat]);
+        }
+      }
+      map.fitBounds(bounds, { padding: { top: 80, bottom: 80, left: 380, right: 80 }, maxZoom: 14 });
+
+      // Highlight in sidebar
+      document.querySelectorAll('.route-item').forEach(el => el.classList.remove('highlighted'));
+      const item = document.querySelector(`.route-item[data-idx="${idx}"]`);
+      if (item) item.classList.add('highlighted');
+    }
+
+    function highlightRoute(idx) {
+      map.setPaintProperty('routes-line', 'line-opacity', [
+        'case', ['==', ['get', 'routeIdx'], idx], 1, 0.2
+      ]);
+      map.setPaintProperty('routes-line', 'line-width', [
+        'case', ['==', ['get', 'routeIdx'], idx],
+        ['interpolate', ['linear'], ['zoom'], 8, 5, 14, 10],
+        ['interpolate', ['linear'], ['zoom'], 8, 2.5, 14, 4]
+      ]);
+    }
+
+    function unhighlightRoute() {
+      map.setPaintProperty('routes-line', 'line-opacity', 0.85);
+      map.setPaintProperty('routes-line', 'line-width',
+        ['interpolate', ['linear'], ['zoom'], 8, 3, 14, 6]
+      );
+    }
+
+    function filterType(type) {
+      activeType = type;
+      document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+
+      // Filter sidebar items
+      document.querySelectorAll('.route-item').forEach(item => {
+        item.classList.toggle('hidden', type !== 'all' && item.dataset.type !== type);
+      });
+      // Show/hide area headers that have no visible items
+      document.querySelectorAll('.area-header').forEach(hdr => {
+        let next = hdr.nextElementSibling;
+        let hasVisible = false;
+        while (next && !next.classList.contains('area-header')) {
+          if (next.classList.contains('route-item') && !next.classList.contains('hidden')) hasVisible = true;
+          next = next.nextElementSibling;
+        }
+        hdr.style.display = hasVisible ? '' : 'none';
+      });
+
+      // Filter map
+      if (type === 'all') {
+        map.setFilter('routes-line', null);
+      } else {
+        map.setFilter('routes-line', ['==', ['get', 'routeType'], type]);
+      }
+    }
+
+    // =====================================================================
+    // INIT
+    // =====================================================================
+    fetch('https://tiles.openfreemap.org/styles/positron')
+      .then(r => r.json())
+      .then(baseStyle => init(baseStyle))
+      .catch(err => {
+        document.getElementById('status').textContent = 'Failed to load map. Please refresh.';
+      });
+
+    function init(baseStyle) {
+      map = new maplibregl.Map({
+        container: 'map',
+        style: baseStyle,
+        center: [-122.25, 37.6],
+        zoom: 9,
+        attributionControl: true,
+      });
+
+      map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+      popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, maxWidth: '300px' });
+
+      map.on('load', () => loadRoutes());
+
+      // Hover on route lines
+      map.on('mousemove', 'routes-line', (e) => {
+        if (!e.features.length) return;
+        map.getCanvas().style.cursor = 'pointer';
+        const p = e.features[0].properties;
+        const color = COLORS[p.routeType];
+        const typeBg = p.routeType === 'road' ? '#dbeafe' : '#fef3c7';
+        const typeColor = p.routeType === 'road' ? '#1d4ed8' : '#92400e';
+        popup.setLngLat(e.lngLat).setHTML(`
+          <div class="popup-name">${p.name}</div>
+          <div class="popup-desc">${p.desc}</div>
+          <span class="popup-type" style="background:${typeBg};color:${typeColor}">${p.routeType}</span>
+        `).addTo(map);
+      });
+      map.on('mouseleave', 'routes-line', () => {
+        map.getCanvas().style.cursor = '';
+        popup.remove();
+      });
+    }
+
+    async function loadRoutes() {
+      const status = document.getElementById('status');
+      try {
+        status.textContent = 'Fetching route data from OpenStreetMap...';
+        const query = buildQuery();
+        const data = await fetchOverpass(query);
+
+        status.textContent = 'Processing routes...';
+        const matched = matchWays(data.elements || []);
+
+        // Build GeoJSON
+        const features = [];
+        for (const [idx, ways] of matched) {
+          features.push(...ways);
+        }
+
+        const geojson = { type: 'FeatureCollection', features };
+
+        // Add to map
+        map.addSource('routes', { type: 'geojson', data: geojson });
+
+        map.addLayer({
+          id: 'routes-line',
+          type: 'line',
+          source: 'routes',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': ['match', ['get', 'routeType'], 'gravel', COLORS.gravel, COLORS.road],
+            'line-width': ['interpolate', ['linear'], ['zoom'], 8, 3, 14, 6],
+            'line-opacity': 0.85,
+          },
+        });
+
+        // Build sidebar
+        buildSidebar(matched);
+        document.getElementById('loading-bar').classList.add('done');
+
+      } catch (err) {
+        console.error(err);
+        status.textContent = 'Failed to load routes. Try refreshing.';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Route Builder — Cycling Routes{% endblock %}
+{% block nav_builder %}active{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/builder.css') }}" />
+{% endblock %}
+
+{% block sidebar %}
+<div id="sidebar">
+  <div class="sidebar-header">
+    <h1>Route Builder</h1>
+    <div class="sub">Click on the map to place waypoints</div>
+  </div>
+
+  <div class="routing-mode">
+    <label class="routing-mode-label">Routing</label>
+    <div class="routing-mode-btns">
+      <button class="mode-btn active" data-mode="road" title="Snaps to paved roads (OSRM)">Road</button>
+      <button class="mode-btn" data-mode="gravel" title="Routes on trails, dirt roads, fire roads">Gravel / Trail</button>
+      <button class="mode-btn" data-mode="straight" title="Straight line between points">Direct</button>
+    </div>
+  </div>
+
+  <div id="route-stats" class="route-stats" style="display:none">
+    <div class="stat"><span class="stat-label">Distance</span><span class="stat-value" id="stat-distance">&mdash;</span></div>
+    <div class="stat"><span class="stat-label">Elevation Gain</span><span class="stat-value" id="stat-elevation">&mdash;</span></div>
+  </div>
+
+  <div id="elevation-profile" class="elevation-profile" style="display:none">
+    <div class="elevation-profile-header">
+      <span>Elevation Profile</span>
+      <span class="elevation-legend">
+        <span class="legend-dot peak"></span> Peak
+        <span class="legend-dot valley"></span> Valley
+      </span>
+    </div>
+    <div class="elevation-canvas-wrap">
+      <canvas id="elevation-canvas"></canvas>
+    </div>
+  </div>
+
+  <div id="waypoint-list" class="waypoint-list"></div>
+
+  <div id="save-form" class="save-form" style="display:none">
+    <input type="text" id="route-name" placeholder="Route name *" required />
+    <textarea id="route-desc" placeholder="Description (optional)" rows="2"></textarea>
+    <div class="form-row">
+      <select id="route-type">
+        <option value="road">Road</option>
+        <option value="gravel">Gravel</option>
+      </select>
+      <input type="text" id="route-region" placeholder="Region" />
+    </div>
+    <button id="save-btn" class="save-btn" onclick="saveRoute()">Save Route</button>
+  </div>
+
+  <div class="builder-actions">
+    <button class="action-btn" id="undo-btn" onclick="undoWaypoint()" disabled>Undo Last Point</button>
+    <button class="action-btn danger" id="clear-btn" onclick="clearRoute()" disabled>Clear All</button>
+  </div>
+</div>
+
+{% if route_id %}
+<script>window.EDIT_ROUTE_ID = "{{ route_id }}";</script>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/builder.js') }}"></script>
+{% endblock %}
