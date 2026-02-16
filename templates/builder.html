@@ -13,6 +13,15 @@
     <div class="sub">Click on the map to place waypoints</div>
   </div>
 
+  <div class="routing-mode">
+    <label class="routing-mode-label">Routing</label>
+    <div class="routing-mode-btns">
+      <button class="mode-btn active" data-mode="road" title="Snaps to paved roads (OSRM)">Road</button>
+      <button class="mode-btn" data-mode="gravel" title="Routes on trails, dirt roads, fire roads">Gravel / Trail</button>
+      <button class="mode-btn" data-mode="straight" title="Straight line between points">Direct</button>
+    </div>
+  </div>
+
   <div id="route-stats" class="route-stats" style="display:none">
     <div class="stat"><span class="stat-label">Distance</span><span class="stat-value" id="stat-distance">&mdash;</span></div>
     <div class="stat"><span class="stat-label">Elevation Gain</span><span class="stat-value" id="stat-elevation">&mdash;</span></div>
