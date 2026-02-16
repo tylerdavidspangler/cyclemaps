@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timezone
 from decimal import Decimal
 
-TABLE_NAME = 'cycling_routes'
+TABLE_NAME = os.environ.get('DYNAMODB_TABLE', 'cyclemaps-routes')
 
 # Storage backend: 'dynamodb' or 'local'
 _backend = None
@@ -22,7 +22,8 @@ def init_db():
         import boto3
         from botocore.exceptions import ClientError, NoCredentialsError, PartialCredentialsError
 
-        dynamodb = boto3.resource('dynamodb')
+        region = os.environ.get('AWS_DEFAULT_REGION', 'us-west-1')
+        dynamodb = boto3.resource('dynamodb', region_name=region)
         table = dynamodb.Table(TABLE_NAME)
         table.load()
         _table = table
