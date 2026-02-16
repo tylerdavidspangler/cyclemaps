@@ -41,6 +41,20 @@ async function loadRoutes() {
       },
     });
 
+    // Yellow highlight layer — hidden by default, shown on hover
+    map.addLayer({
+      id: 'routes-highlight',
+      type: 'line',
+      source: 'routes',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': '#facc15',
+        'line-width': ['interpolate', ['linear'], ['zoom'], 6, 5, 14, 10],
+        'line-opacity': 0.9,
+      },
+      filter: ['==', ['get', 'id'], ''],
+    });
+
     buildSidebar();
     document.getElementById('loading-bar').classList.add('done');
 
@@ -146,33 +160,21 @@ function flyToRoute(route) {
   if (el) el.classList.add('highlighted');
 
   // Highlight on map
-  map.setPaintProperty('routes-line', 'line-opacity', [
-    'case', ['==', ['get', 'id'], route.id], 1, 0.2
-  ]);
-  map.setPaintProperty('routes-line', 'line-width', [
-    'case', ['==', ['get', 'id'], route.id],
-    ['interpolate', ['linear'], ['zoom'], 6, 4, 14, 10],
-    ['interpolate', ['linear'], ['zoom'], 6, 1.5, 14, 4]
-  ]);
+  highlightRoute(route.id);
 }
 
 // --- Highlight / unhighlight ---
 function highlightRoute(routeId) {
-  map.setPaintProperty('routes-line', 'line-opacity', [
-    'case', ['==', ['get', 'id'], routeId], 1, 0.2
-  ]);
-  map.setPaintProperty('routes-line', 'line-width', [
-    'case', ['==', ['get', 'id'], routeId],
-    ['interpolate', ['linear'], ['zoom'], 6, 4, 14, 10],
-    ['interpolate', ['linear'], ['zoom'], 6, 1.5, 14, 4]
-  ]);
+  map.setFilter('routes-highlight', ['==', ['get', 'id'], routeId]);
+  // Also highlight in sidebar
+  document.querySelectorAll('.route-item').forEach(el => {
+    el.classList.toggle('hover', el.dataset.id === routeId);
+  });
 }
 
 function unhighlightRoute() {
-  map.setPaintProperty('routes-line', 'line-opacity', 0.85);
-  map.setPaintProperty('routes-line', 'line-width',
-    ['interpolate', ['linear'], ['zoom'], 6, 2, 14, 6]
-  );
+  map.setFilter('routes-highlight', ['==', ['get', 'id'], '']);
+  document.querySelectorAll('.route-item').forEach(el => el.classList.remove('hover'));
 }
 
 // --- Hover popup on map ---
@@ -183,6 +185,8 @@ function setupHoverPopup() {
     const p = e.features[0].properties;
     const bg = typeBg(p.route_type);
     const tc = typeColor(p.route_type);
+
+    highlightRoute(p.id);
 
     const meta = [];
     if (p.distance_km) meta.push(formatDistance(p.distance_km));
@@ -198,6 +202,7 @@ function setupHoverPopup() {
   map.on('mouseleave', 'routes-line', () => {
     map.getCanvas().style.cursor = '';
     popup.remove();
+    unhighlightRoute();
   });
 }
 

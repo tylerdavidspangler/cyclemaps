@@ -61,7 +61,7 @@
   transition: background 0.12s;
   border-left: 3px solid transparent;
 }
-.route-item:hover { background: #f8fafc; }
+.route-item:hover, .route-item.hover { background: #fefce8; border-left-color: #facc15; }
 .route-item.highlighted { background: #eff6ff; border-left-color: #3b82f6; }
 .route-item.highlighted[data-type="gravel"] { background: #fffbeb; border-left-color: #d97706; }
 .route-item.hidden { display: none; }
