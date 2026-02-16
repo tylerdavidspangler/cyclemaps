@@ -190,11 +190,11 @@ def update_route(route_id, data):
         _table.update_item(
             Key={'id': route_id},
             UpdateExpression='SET #n = :name, description = :description, route_type = :route_type, '
-                             'region = :region, distance_km = :distance_km, elevation_m = :elevation_m, '
+                             '#r = :region, distance_km = :distance_km, elevation_m = :elevation_m, '
                              'geometry = :geometry, waypoints = :waypoints, center_lng = :center_lng, '
                              'center_lat = :center_lat, elevation_profile = :elevation_profile, '
                              'surface_data = :surface_data, updated_at = :updated_at',
-            ExpressionAttributeNames={'#n': 'name'},
+            ExpressionAttributeNames={'#n': 'name', '#r': 'region'},
             ExpressionAttributeValues={
                 ':name': dynamo_fields['name'],
                 ':description': dynamo_fields['description'],
