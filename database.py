@@ -97,6 +97,8 @@ def create_route(data):
         'waypoints': data.get('waypoints', '[]'),
         'center_lng': float(data.get('center_lng', 0)),
         'center_lat': float(data.get('center_lat', 0)),
+        'elevation_profile': data.get('elevation_profile', ''),
+        'surface_data': data.get('surface_data', ''),
         'created_at': now,
         'updated_at': now,
     }
@@ -177,6 +179,8 @@ def update_route(route_id, data):
         'waypoints': data.get('waypoints', existing.get('waypoints', '[]')),
         'center_lng': float(data.get('center_lng', existing.get('center_lng', 0))),
         'center_lat': float(data.get('center_lat', existing.get('center_lat', 0))),
+        'elevation_profile': data.get('elevation_profile', existing.get('elevation_profile', '')),
+        'surface_data': data.get('surface_data', existing.get('surface_data', '')),
         'updated_at': now,
     }
 
@@ -187,7 +191,8 @@ def update_route(route_id, data):
             UpdateExpression='SET #n = :name, description = :description, route_type = :route_type, '
                              'region = :region, distance_km = :distance_km, elevation_m = :elevation_m, '
                              'geometry = :geometry, waypoints = :waypoints, center_lng = :center_lng, '
-                             'center_lat = :center_lat, updated_at = :updated_at',
+                             'center_lat = :center_lat, elevation_profile = :elevation_profile, '
+                             'surface_data = :surface_data, updated_at = :updated_at',
             ExpressionAttributeNames={'#n': 'name'},
             ExpressionAttributeValues={
                 ':name': dynamo_fields['name'],
@@ -200,6 +205,8 @@ def update_route(route_id, data):
                 ':waypoints': dynamo_fields['waypoints'],
                 ':center_lng': dynamo_fields['center_lng'],
                 ':center_lat': dynamo_fields['center_lat'],
+                ':elevation_profile': dynamo_fields['elevation_profile'],
+                ':surface_data': dynamo_fields['surface_data'],
                 ':updated_at': dynamo_fields['updated_at'],
             },
         )

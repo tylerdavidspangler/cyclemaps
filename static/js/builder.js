@@ -35,14 +35,15 @@ function decodePolyline6(encoded) {
 let waypoints = [];       // [{lng, lat, marker}]
 let routeGeometry = null; // GeoJSON LineString
 let routeDistance = 0;     // meters
-let routeElevations = null; // {elevations: [...], distances: [...]} for profile
+let routeElevations = null; // {elevations: [...], distances: [...], coordinates: [...], indices: []}
 let routeElevationGain = 0;
+let routeSurfaceData = null; // {breakdown: [...], raw_counts: {...}}
 let routeTimeout = null;
 let isSaving = false;
 let routingMode = 'road'; // 'road', 'gravel', or 'straight'
 
 // --- Init ---
-initMap({ center: [0, 20], zoom: 2 }).then(() => {
+initMap().then(() => {
   map.getContainer().classList.add('builder-cursor');
   map.on('click', onMapClick);
   renderWaypointList();
@@ -120,10 +121,13 @@ window.clearRoute = function() {
   routeDistance = 0;
   routeElevations = null;
   routeElevationGain = 0;
+  routeSurfaceData = null;
   clearRouteLine();
+  clearGradientLine();
   renderWaypointList();
   updateStats();
   drawElevationProfile();
+  renderSurfaceBar(null);
 };
 
 // --- Render waypoint list ---
@@ -142,6 +146,8 @@ function renderWaypointList() {
   if (waypoints.length === 0) {
     list.innerHTML = '<div class="waypoint-empty">Click on the map to place your first waypoint</div>';
     document.getElementById('elevation-profile').style.display = 'none';
+    document.getElementById('surface-bar').style.display = 'none';
+    document.getElementById('gradient-legend').style.display = 'none';
     return;
   }
 
@@ -167,9 +173,12 @@ function queryOSRM() {
     routeDistance = 0;
     routeElevations = null;
     routeElevationGain = 0;
+    routeSurfaceData = null;
     clearRouteLine();
+    clearGradientLine();
     updateStats();
     drawElevationProfile();
+    renderSurfaceBar(null);
     return;
   }
 
@@ -184,6 +193,7 @@ function queryOSRM() {
       drawRouteLine();
       updateStats();
       fetchElevation();
+      fetchSurface();
       return;
     }
 
@@ -216,7 +226,7 @@ function queryOSRM() {
         }
 
         routeGeometry = { type: 'LineString', coordinates: allCoords };
-        routeDistance = data.trip.summary.length * 1000; // km → meters
+        routeDistance = data.trip.summary.length * 1000; // km -> meters
 
       } else {
         // OSRM cycling profile — snaps to paved roads
@@ -237,6 +247,7 @@ function queryOSRM() {
       drawRouteLine();
       updateStats();
       fetchElevation();
+      fetchSurface();
 
     } catch (err) {
       console.error('Routing error:', err);
@@ -248,16 +259,28 @@ function queryOSRM() {
 function drawRouteLine() {
   if (!routeGeometry) return;
 
+  const data = { type: 'Feature', geometry: routeGeometry };
+
   if (map.getSource('builder-route')) {
-    map.getSource('builder-route').setData({
-      type: 'Feature',
-      geometry: routeGeometry,
-    });
+    map.getSource('builder-route').setData(data);
   } else {
     map.addSource('builder-route', {
       type: 'geojson',
-      data: { type: 'Feature', geometry: routeGeometry },
+      data: data,
     });
+    // Dark outline for definition
+    map.addLayer({
+      id: 'builder-route-outline',
+      type: 'line',
+      source: 'builder-route',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': '#1e3a5f',
+        'line-width': 7,
+        'line-opacity': 0.15,
+      },
+    });
+    // Solid route line (visible when no gradient data)
     map.addLayer({
       id: 'builder-route-line',
       type: 'line',
@@ -276,6 +299,77 @@ function clearRouteLine() {
   if (map.getSource('builder-route')) {
     map.getSource('builder-route').setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
   }
+}
+
+// --- Gradient coloring ---
+function applyGradientColoring() {
+  if (!routeElevations || routeElevations.elevations.length < 2 || !routeGeometry) return;
+
+  const elevs = routeElevations.elevations;
+  const dists = routeElevations.distances;
+  const indices = routeElevations.indices;
+  const allCoords = routeGeometry.coordinates;
+
+  const features = [];
+  for (let i = 0; i < elevs.length - 1; i++) {
+    const rise = elevs[i + 1] - elevs[i];
+    const run = (dists[i + 1] - dists[i]) * 1000;
+    const grade = run > 0 ? Math.abs(rise / run) * 100 : 0;
+
+    // Use full-resolution route coords for this segment
+    let segCoords;
+    if (indices && indices[i] !== undefined && indices[i + 1] !== undefined) {
+      segCoords = allCoords.slice(indices[i], indices[i + 1] + 1);
+    } else {
+      segCoords = [routeElevations.coordinates[i], routeElevations.coordinates[i + 1]];
+    }
+    if (segCoords.length < 2) continue;
+
+    features.push({
+      type: 'Feature',
+      properties: { grade: grade },
+      geometry: { type: 'LineString', coordinates: segCoords },
+    });
+  }
+
+  const fc = { type: 'FeatureCollection', features };
+
+  if (map.getSource('builder-gradient')) {
+    map.getSource('builder-gradient').setData(fc);
+  } else {
+    map.addSource('builder-gradient', { type: 'geojson', data: fc });
+    map.addLayer({
+      id: 'builder-gradient-line',
+      type: 'line',
+      source: 'builder-gradient',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-width': 4,
+        'line-opacity': 0.9,
+        'line-color': [
+          'interpolate', ['linear'], ['get', 'grade'],
+          0, '#22c55e', 3, '#84cc16', 5, '#eab308',
+          8, '#f97316', 12, '#ef4444', 18, '#991b1b',
+        ],
+      },
+    });
+  }
+
+  // Hide solid blue line since gradient covers it
+  if (map.getLayer('builder-route-line')) {
+    map.setPaintProperty('builder-route-line', 'line-opacity', 0);
+  }
+  document.getElementById('gradient-legend').style.display = '';
+}
+
+function clearGradientLine() {
+  if (map.getSource('builder-gradient')) {
+    map.getSource('builder-gradient').setData({ type: 'FeatureCollection', features: [] });
+  }
+  if (map.getLayer('builder-route-line')) {
+    map.setPaintProperty('builder-route-line', 'line-opacity', 0.9);
+  }
+  document.getElementById('gradient-legend').style.display = 'none';
 }
 
 // --- Stats ---
@@ -315,11 +409,14 @@ async function fetchElevation() {
   const maxSamples = 80;
   const step = Math.max(1, Math.floor(coords.length / maxSamples));
   const sampled = [];
+  const indices = [];
   for (let i = 0; i < coords.length; i += step) {
     sampled.push(coords[i]);
+    indices.push(i);
   }
   if (sampled.length > 0 && sampled[sampled.length - 1] !== coords[coords.length - 1]) {
     sampled.push(coords[coords.length - 1]);
+    indices.push(coords.length - 1);
   }
 
   try {
@@ -342,6 +439,15 @@ async function fetchElevation() {
     // Ignore if this request was cancelled (a newer one is pending)
     if (signal.aborted) return;
 
+    // Sanitize: replace any null/NaN with 0
+    if (data.elevations) {
+      for (let i = 0; i < data.elevations.length; i++) {
+        if (data.elevations[i] == null || isNaN(data.elevations[i])) {
+          data.elevations[i] = 0;
+        }
+      }
+    }
+
     routeElevationGain = data.elevation_gain_m || 0;
 
     // Compute cumulative distances for the elevation profile
@@ -357,15 +463,75 @@ async function fetchElevation() {
       elevations: data.elevations,
       distances: distances,
       coordinates: sampled,
+      indices: indices,
     };
 
     updateStats();
+    applyGradientColoring();
     drawElevationProfile();
 
   } catch (err) {
     if (err.name === 'AbortError') return; // Expected: cancelled by newer request
     console.error('Elevation error:', err);
     document.getElementById('stat-elevation').textContent = 'Error';
+  }
+}
+
+// --- Surface data ---
+let surfaceAbortController = null;
+
+async function fetchSurface() {
+  if (!routeGeometry || !routeGeometry.coordinates || routeGeometry.coordinates.length < 2) return;
+
+  if (surfaceAbortController) surfaceAbortController.abort();
+  surfaceAbortController = new AbortController();
+  const signal = surfaceAbortController.signal;
+
+  try {
+    const resp = await fetch('/api/surface', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coordinates: routeGeometry.coordinates }),
+      signal: signal,
+    });
+
+    if (!resp.ok || signal.aborted) return;
+    const data = await resp.json();
+    if (signal.aborted) return;
+
+    routeSurfaceData = data;
+    renderSurfaceBar(data);
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    console.error('Surface error:', err);
+  }
+}
+
+function renderSurfaceBar(data) {
+  const container = document.getElementById('surface-bar');
+  const track = document.getElementById('surface-track');
+  const labels = document.getElementById('surface-labels');
+
+  if (!data || !data.breakdown || data.breakdown.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = '';
+  track.innerHTML = '';
+  labels.innerHTML = '';
+
+  for (const item of data.breakdown) {
+    const seg = document.createElement('div');
+    seg.className = 'surface-segment';
+    seg.style.width = item.percentage + '%';
+    seg.style.background = SURFACE_COLORS[item.type] || '#94a3b8';
+    track.appendChild(seg);
+
+    const lbl = document.createElement('span');
+    lbl.className = 'surface-label';
+    lbl.innerHTML = `<span class="surface-dot" style="background:${SURFACE_COLORS[item.type] || '#94a3b8'}"></span>${SURFACE_LABELS[item.type] || item.type} ${item.percentage}%`;
+    labels.appendChild(lbl);
   }
 }
 
@@ -459,29 +625,32 @@ function drawElevationProfile(hoverIdx) {
     points.push({ x, y });
   }
 
-  // Fill gradient
-  const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
-  gradient.addColorStop(0, 'rgba(37, 99, 235, 0.25)');
-  gradient.addColorStop(1, 'rgba(37, 99, 235, 0.02)');
+  // Gradient-colored fill and line
+  for (let i = 0; i < points.length - 1; i++) {
+    const rise = elevs[i + 1] - elevs[i];
+    const run = (dists[i + 1] - dists[i]) * 1000;
+    const grade = run > 0 ? Math.abs(rise / run) * 100 : 0;
+    const color = gradeToColor(grade);
 
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, padding.top + chartH);
-  for (const p of points) ctx.lineTo(p.x, p.y);
-  ctx.lineTo(points[points.length - 1].x, padding.top + chartH);
-  ctx.closePath();
-  ctx.fillStyle = gradient;
-  ctx.fill();
-
-  // Line
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
-  for (let i = 1; i < points.length; i++) {
+    // Fill segment
+    ctx.beginPath();
+    ctx.moveTo(points[i].x, padding.top + chartH);
     ctx.lineTo(points[i].x, points[i].y);
+    ctx.lineTo(points[i + 1].x, points[i + 1].y);
+    ctx.lineTo(points[i + 1].x, padding.top + chartH);
+    ctx.closePath();
+    ctx.fillStyle = color + '40';
+    ctx.fill();
+
+    // Line segment
+    ctx.beginPath();
+    ctx.moveTo(points[i].x, points[i].y);
+    ctx.lineTo(points[i + 1].x, points[i + 1].y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
   }
-  ctx.strokeStyle = '#2563eb';
-  ctx.lineWidth = 2;
-  ctx.lineJoin = 'round';
-  ctx.stroke();
 
   // Mark peaks and valleys
   for (let i = 1; i < elevs.length - 1; i++) {
@@ -534,10 +703,17 @@ function drawProfileHoverOverlay(ctx, points, elevs, dists, padding, chartW, cha
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Tooltip
+  // Tooltip with grade info
   const elevFt = Math.round(elevs[idx] * M_TO_FT);
   const distMi = (dists[idx] * KM_TO_MI).toFixed(1);
-  const text = `${elevFt.toLocaleString()} ft @ ${distMi} mi`;
+  let gradeText = '';
+  if (idx < elevs.length - 1) {
+    const rise = elevs[idx + 1] - elevs[idx];
+    const run = (dists[idx + 1] - dists[idx]) * 1000;
+    const grade = run > 0 ? (rise / run) * 100 : 0;
+    gradeText = ` | ${grade >= 0 ? '+' : ''}${grade.toFixed(1)}%`;
+  }
+  const text = `${elevFt.toLocaleString()} ft @ ${distMi} mi${gradeText}`;
   ctx.font = 'bold 11px -apple-system, sans-serif';
   const tw = ctx.measureText(text).width + 12;
   let tx = points[idx].x - tw / 2;
@@ -660,6 +836,8 @@ window.saveRoute = async function() {
     waypoints: JSON.stringify(waypoints.map(wp => [wp.lng, wp.lat])),
     center_lng: mid[0],
     center_lat: mid[1],
+    elevation_profile: routeElevations ? JSON.stringify(routeElevations) : '',
+    surface_data: routeSurfaceData ? JSON.stringify(routeSurfaceData) : '',
   };
 
   try {
@@ -674,7 +852,8 @@ window.saveRoute = async function() {
     });
 
     if (resp.ok) {
-      window.location.href = '/viewer';
+      const saved = await resp.json();
+      window.location.href = `/route/${saved.id}`;
     } else {
       const err = await resp.json();
       alert('Save failed: ' + (err.error || 'Unknown error'));

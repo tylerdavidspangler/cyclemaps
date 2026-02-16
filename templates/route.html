@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Route — Cycling Routes{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/route.css') }}" />
+{% endblock %}
+
+{% block sidebar %}
+<div id="sidebar">
+  <div class="sidebar-header">
+    <a href="/viewer" class="back-link">&larr; All Routes</a>
+    <h1 id="route-name">Loading...</h1>
+    <div class="sub" id="route-desc"></div>
+  </div>
+
+  <div id="route-stats" class="route-stats">
+    <div class="stat"><span class="stat-label">Distance</span><span class="stat-value" id="stat-distance">&mdash;</span></div>
+    <div class="stat"><span class="stat-label">Elevation Gain</span><span class="stat-value" id="stat-elevation">&mdash;</span></div>
+  </div>
+
+  <div id="gradient-legend" class="gradient-legend" style="display:none">
+    <div class="gradient-legend-title">Gradient</div>
+    <div class="gradient-legend-bar">
+      <span style="background:#22c55e">0%</span>
+      <span style="background:#84cc16">3%</span>
+      <span style="background:#eab308">5%</span>
+      <span style="background:#f97316">8%</span>
+      <span style="background:#ef4444">12%</span>
+      <span style="background:#991b1b">18%+</span>
+    </div>
+  </div>
+
+  <div id="surface-bar" class="surface-bar" style="display:none">
+    <div class="surface-bar-title">Surface</div>
+    <div class="surface-bar-track" id="surface-track"></div>
+    <div class="surface-bar-labels" id="surface-labels"></div>
+  </div>
+
+  <div id="elevation-profile" class="elevation-profile" style="display:none">
+    <div class="elevation-profile-header">
+      <span>Elevation Profile</span>
+      <span class="elevation-legend">
+        <span class="legend-dot peak"></span> Peak
+        <span class="legend-dot valley"></span> Valley
+      </span>
+    </div>
+    <div class="elevation-canvas-wrap">
+      <canvas id="elevation-canvas"></canvas>
+    </div>
+  </div>
+
+  <div class="route-detail-meta" id="route-meta"></div>
+
+  <div class="route-detail-actions">
+    <button class="detail-btn primary" id="gpx-btn">Download GPX</button>
+    <button class="detail-btn" id="share-btn">Copy Link</button>
+    <a class="detail-btn" id="edit-link" href="#">Edit in Builder</a>
+  </div>
+</div>
+
+<script>window.ROUTE_ID = "{{ route_id }}";</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/route.js') }}"></script>
+{% endblock %}

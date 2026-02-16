@@ -28,6 +28,11 @@ def builder_edit(route_id):
     return render_template('builder.html', route_id=route_id)
 
 
+@app.route('/route/<route_id>')
+def route_detail(route_id):
+    return render_template('route.html', route_id=route_id)
+
+
 # --- Init ---
 
 if __name__ == '__main__':

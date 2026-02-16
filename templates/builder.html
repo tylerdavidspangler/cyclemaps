@@ -27,6 +27,24 @@
     <div class="stat"><span class="stat-label">Elevation Gain</span><span class="stat-value" id="stat-elevation">&mdash;</span></div>
   </div>
 
+  <div id="gradient-legend" class="gradient-legend" style="display:none">
+    <div class="gradient-legend-title">Gradient</div>
+    <div class="gradient-legend-bar">
+      <span style="background:#22c55e">0%</span>
+      <span style="background:#84cc16">3%</span>
+      <span style="background:#eab308">5%</span>
+      <span style="background:#f97316">8%</span>
+      <span style="background:#ef4444">12%</span>
+      <span style="background:#991b1b">18%+</span>
+    </div>
+  </div>
+
+  <div id="surface-bar" class="surface-bar" style="display:none">
+    <div class="surface-bar-title">Surface</div>
+    <div class="surface-bar-track" id="surface-track"></div>
+    <div class="surface-bar-labels" id="surface-labels"></div>
+  </div>
+
   <div id="elevation-profile" class="elevation-profile" style="display:none">
     <div class="elevation-profile-header">
       <span>Elevation Profile</span>

@@ -30,14 +30,36 @@ function typeColor(type) {
   return type === 'road' ? '#1d4ed8' : '#92400e';
 }
 
+// Gradient color scale for grade percentage
+const GRADE_COLORS = [
+  [0, '#22c55e'],   // flat — green
+  [3, '#84cc16'],   // easy — lime
+  [5, '#eab308'],   // moderate — yellow
+  [8, '#f97316'],   // steep — orange
+  [12, '#ef4444'],  // very steep — red
+  [18, '#991b1b'],  // extreme — dark red
+];
+
+function gradeToColor(grade) {
+  const abs = Math.abs(grade);
+  for (let i = GRADE_COLORS.length - 1; i >= 0; i--) {
+    if (abs >= GRADE_COLORS[i][0]) return GRADE_COLORS[i][1];
+  }
+  return GRADE_COLORS[0][1];
+}
+
+// Surface type colors & labels
+const SURFACE_COLORS = { paved: '#475569', gravel: '#d97706', dirt: '#92400e' };
+const SURFACE_LABELS = { paved: 'Paved', gravel: 'Gravel', dirt: 'Dirt/Trail' };
+
 // =====================================================================
 // MAP INITIALIZATION
 // =====================================================================
 let map, popup;
 
 function initMap(options = {}) {
-  const center = options.center || [0, 20];
-  const zoom = options.zoom || 2;
+  const center = options.center || [-122.1, 37.55];
+  const zoom = options.zoom || 9;
 
   return fetch(MAP_STYLE_URL)
     .then(r => r.json())

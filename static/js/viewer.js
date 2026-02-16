@@ -44,16 +44,7 @@ async function loadRoutes() {
     buildSidebar();
     document.getElementById('loading-bar').classList.add('done');
 
-    // Fit map to routes if any exist
-    if (geojson.features.length > 0) {
-      const bounds = new maplibregl.LngLatBounds();
-      for (const f of geojson.features) {
-        for (const coord of f.geometry.coordinates) {
-          bounds.extend(coord);
-        }
-      }
-      map.fitBounds(bounds, { padding: { top: 80, bottom: 80, left: 400, right: 80 }, maxZoom: 12 });
-    }
+    // Keep default Bay Area view — clicking a route will fly to it
 
   } catch (err) {
     console.error(err);
@@ -127,6 +118,8 @@ function buildSidebar() {
         ${route.description ? `<div class="route-desc">${route.description}</div>` : ''}
         ${meta.length ? `<div class="route-meta">${meta.join(' · ')}</div>` : ''}
         <div class="route-actions">
+          <button onclick="event.stopPropagation(); location.href='/route/${route.id}'">View</button>
+          <button onclick="event.stopPropagation(); window.location.href='/api/routes/${route.id}/gpx'">GPX</button>
           <button onclick="event.stopPropagation(); location.href='/builder/${route.id}'">Edit</button>
           <button class="danger" onclick="event.stopPropagation(); deleteRoute('${route.id}', '${route.name.replace(/'/g, "\\'")}')">Delete</button>
         </div>

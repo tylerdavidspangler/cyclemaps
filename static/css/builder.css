@@ -225,5 +225,76 @@
 .action-btn.danger { color: #ef4444; }
 .action-btn.danger:hover:not(:disabled) { background: #fef2f2; border-color: #fca5a5; }
 
+/* --- Gradient legend --- */
+.gradient-legend {
+  padding: 10px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.gradient-legend-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.gradient-legend-bar {
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.gradient-legend-bar span {
+  flex: 1;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  color: #fff;
+  padding: 3px 0;
+}
+
+/* --- Surface bar --- */
+.surface-bar {
+  padding: 10px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.surface-bar-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.surface-bar-track {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.surface-segment {
+  height: 100%;
+  transition: width 0.3s;
+}
+.surface-bar-labels {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.surface-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+.surface-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* --- Builder map cursor --- */
 .builder-cursor .maplibregl-canvas { cursor: crosshair !important; }
