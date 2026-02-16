@@ -4,6 +4,7 @@ from routes_api import api
 
 app = Flask(__name__)
 app.register_blueprint(api)
+db.init_db()
 
 
 # --- Page routes ---
