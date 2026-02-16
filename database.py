@@ -91,6 +91,7 @@ def create_route(data):
         'name': data['name'],
         'description': data.get('description', ''),
         'route_type': data.get('route_type', 'road'),
+        'tier': data.get('tier', ''),
         'region': data.get('region', ''),
         'distance_km': float(data.get('distance_km', 0)),
         'elevation_m': float(data.get('elevation_m', 0)),
@@ -133,13 +134,13 @@ def list_routes():
     if _backend == 'dynamodb':
         from botocore.exceptions import ClientError
         resp = _table.scan(
-            ProjectionExpression='id, #n, description, route_type, #r, distance_km, elevation_m, center_lng, center_lat, created_at, updated_at',
+            ProjectionExpression='id, #n, description, route_type, tier, #r, distance_km, elevation_m, center_lng, center_lat, created_at, updated_at',
             ExpressionAttributeNames={'#n': 'name', '#r': 'region'},
         )
         items = resp.get('Items', [])
         while 'LastEvaluatedKey' in resp:
             resp = _table.scan(
-                ProjectionExpression='id, #n, description, route_type, #r, distance_km, elevation_m, center_lng, center_lat, created_at, updated_at',
+                ProjectionExpression='id, #n, description, route_type, tier, #r, distance_km, elevation_m, center_lng, center_lat, created_at, updated_at',
                 ExpressionAttributeNames={'#n': 'name', '#r': 'region'},
                 ExclusiveStartKey=resp['LastEvaluatedKey'],
             )
@@ -173,6 +174,7 @@ def update_route(route_id, data):
         'name': data.get('name', existing['name']),
         'description': data.get('description', existing.get('description', '')),
         'route_type': data.get('route_type', existing.get('route_type', 'road')),
+        'tier': data.get('tier', existing.get('tier', '')),
         'region': data.get('region', existing.get('region', '')),
         'distance_km': float(data.get('distance_km', existing.get('distance_km', 0))),
         'elevation_m': float(data.get('elevation_m', existing.get('elevation_m', 0))),
@@ -190,7 +192,7 @@ def update_route(route_id, data):
         _table.update_item(
             Key={'id': route_id},
             UpdateExpression='SET #n = :name, description = :description, route_type = :route_type, '
-                             '#r = :region, distance_km = :distance_km, elevation_m = :elevation_m, '
+                             'tier = :tier, #r = :region, distance_km = :distance_km, elevation_m = :elevation_m, '
                              'geometry = :geometry, waypoints = :waypoints, center_lng = :center_lng, '
                              'center_lat = :center_lat, elevation_profile = :elevation_profile, '
                              'surface_data = :surface_data, updated_at = :updated_at',
@@ -199,6 +201,7 @@ def update_route(route_id, data):
                 ':name': dynamo_fields['name'],
                 ':description': dynamo_fields['description'],
                 ':route_type': dynamo_fields['route_type'],
+                ':tier': dynamo_fields['tier'],
                 ':region': dynamo_fields['region'],
                 ':distance_km': dynamo_fields['distance_km'],
                 ':elevation_m': dynamo_fields['elevation_m'],

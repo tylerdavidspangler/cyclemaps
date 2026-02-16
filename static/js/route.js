@@ -46,6 +46,7 @@ function renderRouteInfo() {
 
   // Meta
   const meta = [];
+  if (routeData.tier) meta.push('Tier ' + routeData.tier);
   if (routeData.region) meta.push(routeData.region);
   meta.push(typeLabel(routeData.route_type));
   document.getElementById('route-meta').textContent = meta.join(' · ');

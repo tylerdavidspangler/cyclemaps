@@ -123,10 +123,13 @@ function buildSidebar() {
       if (route.distance_km) meta.push(formatDistance(route.distance_km));
       if (route.elevation_m) meta.push(formatElevation(route.elevation_m) + ' gain');
 
+      const tierTag = route.tier ? `<span class="route-tier-tag">${route.tier}</span>` : '';
+
       item.innerHTML = `
         <div class="route-name">
           <span class="route-dot" style="background:${color}"></span>
           ${route.name}
+          ${tierTag}
           <span class="route-type-tag" style="background:${bg};color:${tc}">${label}</span>
         </div>
         ${route.description ? `<div class="route-desc">${route.description}</div>` : ''}

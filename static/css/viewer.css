@@ -93,6 +93,15 @@
   padding-left: 16px;
   margin-top: 2px;
 }
+.route-tier-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
 .route-type-tag {
   font-size: 9px;
   font-weight: 600;

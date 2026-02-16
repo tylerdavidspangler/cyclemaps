@@ -829,6 +829,7 @@ window.saveRoute = async function() {
     name: name,
     description: document.getElementById('route-desc').value.trim(),
     route_type: document.getElementById('route-type').value,
+    tier: document.getElementById('route-tier').value,
     region: document.getElementById('route-region').value.trim(),
     distance_km: parseFloat((routeDistance / 1000).toFixed(2)),
     elevation_m: routeElevationGain || 0,
@@ -881,6 +882,7 @@ async function loadExistingRoute(routeId) {
     document.getElementById('route-name').value = route.name || '';
     document.getElementById('route-desc').value = route.description || '';
     document.getElementById('route-type').value = route.route_type || 'road';
+    document.getElementById('route-tier').value = route.tier || '';
     document.getElementById('route-region').value = route.region || '';
 
     const wps = JSON.parse(route.waypoints || '[]');
