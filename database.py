@@ -133,14 +133,14 @@ def list_routes():
     if _backend == 'dynamodb':
         from botocore.exceptions import ClientError
         resp = _table.scan(
-            ProjectionExpression='id, #n, description, route_type, region, distance_km, elevation_m, center_lng, center_lat, created_at, updated_at',
-            ExpressionAttributeNames={'#n': 'name'},
+            ProjectionExpression='id, #n, description, route_type, #r, distance_km, elevation_m, center_lng, center_lat, created_at, updated_at',
+            ExpressionAttributeNames={'#n': 'name', '#r': 'region'},
         )
         items = resp.get('Items', [])
         while 'LastEvaluatedKey' in resp:
             resp = _table.scan(
-                ProjectionExpression='id, #n, description, route_type, region, distance_km, elevation_m, center_lng, center_lat, created_at, updated_at',
-                ExpressionAttributeNames={'#n': 'name'},
+                ProjectionExpression='id, #n, description, route_type, #r, distance_km, elevation_m, center_lng, center_lat, created_at, updated_at',
+                ExpressionAttributeNames={'#n': 'name', '#r': 'region'},
                 ExclusiveStartKey=resp['LastEvaluatedKey'],
             )
             items.extend(resp.get('Items', []))
