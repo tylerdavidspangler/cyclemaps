@@ -297,4 +297,4 @@
 }
 
 /* --- Builder map cursor --- */
-.builder-cursor .maplibregl-canvas { cursor: crosshair !important; }
+.builder-cursor .maplibregl-canvas { cursor: default !important; }
