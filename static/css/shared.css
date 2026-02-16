@@ -78,6 +78,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 }
 
 /* --- Popup --- */
+.maplibregl-popup {
+  pointer-events: none;
+}
 .maplibregl-popup-content {
   border-radius: 10px !important;
   padding: 10px 14px !important;
